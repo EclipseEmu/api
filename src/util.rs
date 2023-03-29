@@ -1,7 +1,6 @@
 use crate::ApiError;
 use axum::{
     body::{boxed, StreamBody},
-    http::HeaderValue,
     response::{IntoResponse, Response},
 };
 use serde::{de, Deserialize, Deserializer};
@@ -32,11 +31,6 @@ impl IntoResponse for ReqwestAxumStream {
         // Set the headers
         for (header, value) in resp.headers().iter() {
             builder = builder.header(header, value.to_owned());
-        }
-
-        // TODO: load this in from env
-        if let Ok(access_control) = HeaderValue::from_str("http://localhost:8000") {
-            builder = builder.header("Access-Control-Allow-Origin", access_control);
         }
 
         // Make the stream
