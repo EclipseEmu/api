@@ -40,8 +40,8 @@ async fn main() -> Result<()> {
 
     let origins = vec![
         HeaderValue::from_static("http://localhost:8000"),
-        HeaderValue::from_static("http://eclipseemu.me"),
-        HeaderValue::from_static("http://beta.eclipseemu.me"),
+        HeaderValue::from_static("https://eclipseemu.me"),
+        HeaderValue::from_static("https://beta.eclipseemu.me"),
     ];
 
     let cors = CorsLayer::new()
