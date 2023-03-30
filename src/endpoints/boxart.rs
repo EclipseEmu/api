@@ -34,11 +34,16 @@ pub async fn handle(
     let query = query
         .to_lowercase()
         .split_whitespace()
-        .map(|substring| {
-            substring
+        .filter_map(|substring| {
+            let string = substring
                 .chars()
                 .filter(|x| char::is_alphanumeric(*x))
-                .collect::<String>()
+                .collect::<String>();
+            if string.trim().is_empty() {
+                None
+            } else {
+                Some(string)
+            }
         })
         .collect::<Vec<String>>()
         .join(" AND ");
