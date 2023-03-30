@@ -7,19 +7,18 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.62"
+anyhow = "1.0.70"
 axum = "0.6.12"
 dotenv = "0.15.0"
-hyper = { version = "0.14.20", features = ["full"] }
-percent-encoding = "2.1.0"
-reqwest = { version = "0.11.11", features = ["stream"] }
-serde = { version = "1.0.143", features = ["derive"] }
+hyper = { version = "0.14.25", features = ["full"] }
+percent-encoding = "2.2.0"
+reqwest = { version = "0.11.16", features = ["stream"] }
+serde = { version = "1.0.159", features = ["derive"] }
 sqlx = { version = "0.6.3", features = ["runtime-tokio-native-tls", "json", "sqlite"] }
-tokio = { version = "1.20.1", features = ["full"] }
+tokio = { version = "1.27.0", features = ["full"] }
 tower-http = { version = "0.4.0", features = ["cors"] }
-tracing = "0.1.36"
-tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
-url = "2.2.2"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 
 [[bin]]
 name = "eclipse-api"

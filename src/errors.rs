@@ -7,7 +7,6 @@ pub enum ApiError {
     Sqlx(sqlx::Error),
     AxumHttp(axum::http::Error),
     MissingQuery(&'static str),
-    UrlParseError,
     Utf8Error,
 }
 
@@ -16,7 +15,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         match self {
             ApiError::MissingQuery(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
-            ApiError::Utf8Error | ApiError::UrlParseError => {
+            ApiError::Utf8Error => {
                 (StatusCode::BAD_REQUEST, "unable to parse the passed url").into_response()
             }
             ApiError::Reqwest(err) => (StatusCode::BAD_REQUEST, err.to_string()).into_response(),
@@ -37,12 +36,6 @@ impl From<reqwest::Error> for ApiError {
 impl From<axum::http::Error> for ApiError {
     fn from(e: axum::http::Error) -> Self {
         Self::AxumHttp(e)
-    }
-}
-
-impl From<url::ParseError> for ApiError {
-    fn from(_: url::ParseError) -> Self {
-        Self::UrlParseError
     }
 }
 
