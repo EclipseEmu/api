@@ -1,8 +1,10 @@
 use axum::response::{IntoResponse, Response};
 use hyper::StatusCode;
 
+#[derive(Debug)]
 pub enum ApiError {
     Reqwest(reqwest::Error),
+    Sqlx(sqlx::Error),
     AxumHttp(axum::http::Error),
     MissingQuery(&'static str),
     UrlParseError,
@@ -18,6 +20,7 @@ impl IntoResponse for ApiError {
                 (StatusCode::BAD_REQUEST, "unable to parse the passed url").into_response()
             }
             ApiError::Reqwest(err) => (StatusCode::BAD_REQUEST, err.to_string()).into_response(),
+            ApiError::Sqlx(err) => (StatusCode::BAD_REQUEST, err.to_string()).into_response(),
             ApiError::AxumHttp(err) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response()
             }
@@ -40,6 +43,12 @@ impl From<axum::http::Error> for ApiError {
 impl From<url::ParseError> for ApiError {
     fn from(_: url::ParseError) -> Self {
         Self::UrlParseError
+    }
+}
+
+impl From<sqlx::Error> for ApiError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Sqlx(e)
     }
 }
 

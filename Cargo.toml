@@ -14,6 +14,7 @@ hyper = { version = "0.14.20", features = ["full"] }
 percent-encoding = "2.1.0"
 reqwest = { version = "0.11.11", features = ["stream"] }
 serde = { version = "1.0.143", features = ["derive"] }
+sqlx = { version = "0.6.3", features = ["runtime-tokio-native-tls", "json", "sqlite"] }
 tokio = { version = "1.20.1", features = ["full"] }
 tower-http = { version = "0.4.0", features = ["cors"] }
 tracing = "0.1.36"

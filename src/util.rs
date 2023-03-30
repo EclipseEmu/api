@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::{de, Deserialize, Deserializer};
+use sqlx::{Executor, SqlitePool};
 use std::{fmt, str::FromStr};
 
 /// Serde deserialization decorator to map empty Strings to None,
@@ -40,4 +41,44 @@ impl IntoResponse for ReqwestAxumStream {
             Err(err) => ApiError::AxumHttp(err).into_response(),
         }
     }
+}
+
+pub async fn setup_openvgdb(path: &str) -> Result<sqlx::SqlitePool, ApiError> {
+    let pool = SqlitePool::connect(path).await?;
+    let mut conn = pool.acquire().await?;
+    let exists = conn
+        .fetch_optional(
+            "select DISTINCT tbl_name from sqlite_master where tbl_name = 'releases_fts'",
+        )
+        .await?
+        .is_some();
+    if !exists {
+        conn.execute(
+            r#"
+            CREATE VIRTUAL TABLE IF NOT EXISTS releases_fts USING fts5 (
+                id,
+                name,
+                boxart,
+                system,
+                region
+            );
+            "#,
+        )
+        .await?;
+        conn.execute(
+            r#"
+            INSERT INTO releases_fts(id, name, boxart, system, region)
+            SELECT
+                releaseID,
+                releaseTitleName,
+                releaseCoverFront,
+                TEMPsystemShortName,
+                TEMPregionLocalizedName
+            FROM RELEASES
+            WHERE LOWER(TEMPsystemShortName) IN ('gba', 'gb', 'gbc', 'nes', 'snes', 'sms', 'gg');
+            "#,
+        )
+        .await?;
+    }
+    Ok(pool)
 }

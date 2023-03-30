@@ -1,25 +1,22 @@
+mod endpoints;
 mod errors;
 mod util;
 
 use anyhow::Result;
-use axum::{
-    extract::{Query, State},
-    http::HeaderValue,
-    response::IntoResponse,
-    routing::get,
-    Router,
-};
+use axum::{http::HeaderValue, routing::get, Router};
 use hyper::{Method, StatusCode};
-use serde::Deserialize;
+use sqlx::SqlitePool;
 use std::{env, net::SocketAddr, time::Duration};
 use tower_http::cors::CorsLayer;
 
 use errors::ApiError;
-use util::{empty_string_as_none, ReqwestAxumStream};
+
+use crate::util::setup_openvgdb;
 
 #[derive(Clone)]
-struct ApiState {
+pub struct ApiState {
     pub http: reqwest::Client,
+    pub openvgdb: SqlitePool,
 }
 
 #[tokio::main]
@@ -28,15 +25,19 @@ async fn main() -> Result<()> {
     let port = env::var("ECLIPSE_API_PORT")
         .unwrap_or_else(|_| String::from("8001"))
         .parse::<u16>()?;
+    let openvgdb_path = env::var("ECLIPSE_API_OPENVGDB_PATH")
+        .expect("expected ECLIPSE_API_OPENVGDB_PATH in the environment");
 
-    // initialize tracing
     tracing_subscriber::fmt::init();
 
-    let state = ApiState {
-        http: reqwest::ClientBuilder::new()
-            .connect_timeout(Duration::from_secs(5))
-            .build()?,
-    };
+    let openvgdb = setup_openvgdb(&openvgdb_path)
+        .await
+        .expect("Failed to open OpenVGDB.");
+    let http = reqwest::ClientBuilder::new()
+        .connect_timeout(Duration::from_secs(5))
+        .build()?;
+
+    let state = ApiState { openvgdb, http };
 
     let origins = vec![
         HeaderValue::from_static("http://localhost:8000"),
@@ -51,8 +52,8 @@ async fn main() -> Result<()> {
     // build our application with a route
     let app = Router::new()
         .route("/", get(|| async { (StatusCode::OK, "Eclipse API") }))
-        .route("/download", get(download_proxy_handler))
-        .route("/download/", get(download_proxy_handler))
+        .route("/download", get(endpoints::download::handle))
+        .route("/boxart", get(endpoints::boxart::handle))
         .layer(cors)
         .with_state(state);
 
@@ -63,26 +64,4 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
     Ok(())
-}
-
-#[derive(Debug, Deserialize)]
-struct Params {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    url: Option<String>,
-}
-
-async fn download_proxy_handler(
-    Query(params): Query<Params>,
-    State(ApiState { http }): State<ApiState>,
-) -> Result<impl IntoResponse, impl IntoResponse> {
-    let Some(url) = params.url else {
-        return Err(ApiError::MissingQuery("missing url param"));
-    };
-    let parsed_url = percent_encoding::percent_decode_str(url.as_str()).decode_utf8()?;
-    tracing::debug!("requesting url: {parsed_url:?}");
-    let req = http.get(parsed_url.to_string()).build()?;
-    match http.execute(req).await {
-        Ok(resp) => Ok(ReqwestAxumStream(resp)),
-        Err(e) => Err(ApiError::Reqwest(e)),
-    }
 }
