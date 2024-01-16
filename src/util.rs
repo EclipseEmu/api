@@ -8,7 +8,6 @@ use {
     serde::{de, Deserialize, Deserializer},
     sqlx::{Executor, SqlitePool},
     std::{fmt, str::FromStr},
-    url::{Host, Url},
 };
 
 /// Serde deserialization decorator to map empty Strings to None,
@@ -22,19 +21,6 @@ where
     match opt.as_deref() {
         None | Some("") => Ok(None),
         Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
-    }
-}
-
-#[inline]
-pub fn is_global_url(url: &Url) -> bool {
-    match url.scheme() {
-        "http" | "https" => match url.host() {
-            Some(Host::Ipv4(ip)) => ip.is_global(),
-            Some(Host::Ipv6(ip)) => ip.is_global(),
-            Some(Host::Domain(str)) if str != "localhost" => true,
-            _ => false,
-        },
-        _ => false,
     }
 }
 

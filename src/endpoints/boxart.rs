@@ -1,11 +1,13 @@
-use crate::{util::empty_string_as_none, ApiError, ApiState};
-use axum::{
-    extract::{Query, State},
-    response::IntoResponse,
-    Json,
+use {
+    crate::{util::empty_string_as_none, ApiError, ApiState},
+    axum::{
+        extract::{Query, State},
+        response::IntoResponse,
+        Json,
+    },
+    serde::{Deserialize, Serialize},
+    sqlx::FromRow,
 };
-use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 #[derive(Serialize, sqlx::FromRow, Debug)]
 struct Game {

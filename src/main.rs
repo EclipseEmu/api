@@ -1,5 +1,6 @@
 #![feature(ip)]
 
+mod dns;
 mod endpoints;
 mod errors;
 mod util;
@@ -12,15 +13,9 @@ use {
         Router,
     },
     sqlx::SqlitePool,
-    std::{env, net::SocketAddr, time::Duration},
+    std::{env, net::SocketAddr, sync::Arc, time::Duration},
     tower_http::cors::CorsLayer,
 };
-
-const ORIGINS: [HeaderValue; 3] = [
-    HeaderValue::from_static("http://localhost:8000"),
-    HeaderValue::from_static("https://eclipseemu.me"),
-    HeaderValue::from_static("https://beta.eclipseemu.me"),
-];
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -43,12 +38,15 @@ async fn main() {
         .expect("Failed to open OpenVGDB.");
     let http = reqwest::ClientBuilder::new()
         .connect_timeout(Duration::from_secs(5))
+        .dns_resolver(Arc::new(dns::TrustDnsResolver::default()))
         .build()
         .expect("Failed to create http client");
 
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET])
-        .allow_origin(ORIGINS);
+    let cors = CorsLayer::new().allow_methods([Method::GET]).allow_origin([
+        HeaderValue::from_static("http://localhost:8000"),
+        HeaderValue::from_static("https://eclipseemu.me"),
+        HeaderValue::from_static("https://beta.eclipseemu.me"),
+    ]);
 
     // build our application with a route
     let app = Router::new()
@@ -62,5 +60,6 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("Failed to create a TCP listener");
+
     axum::serve(listener, app).await.unwrap();
 }
