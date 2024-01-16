@@ -1,17 +1,26 @@
+#![feature(ip)]
+
 mod endpoints;
 mod errors;
 mod util;
 
-use anyhow::Result;
-use axum::{http::HeaderValue, routing::get, Router};
-use hyper::{Method, StatusCode};
-use sqlx::SqlitePool;
-use std::{env, net::SocketAddr, time::Duration};
-use tower_http::cors::CorsLayer;
+use {
+    crate::{errors::ApiError, util::setup_openvgdb},
+    axum::{
+        http::{HeaderValue, Method},
+        routing::get,
+        Router,
+    },
+    sqlx::SqlitePool,
+    std::{env, net::SocketAddr, time::Duration},
+    tower_http::cors::CorsLayer,
+};
 
-use errors::ApiError;
-
-use crate::util::setup_openvgdb;
+const ORIGINS: [HeaderValue; 3] = [
+    HeaderValue::from_static("http://localhost:8000"),
+    HeaderValue::from_static("https://eclipseemu.me"),
+    HeaderValue::from_static("https://beta.eclipseemu.me"),
+];
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -20,48 +29,38 @@ pub struct ApiState {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     dotenv::dotenv().ok();
     let port = env::var("ECLIPSE_API_PORT")
         .unwrap_or_else(|_| String::from("8001"))
-        .parse::<u16>()?;
+        .parse::<u16>()
+        .expect("failed to parse ECLIPSE_API_PORT");
     let openvgdb_path = env::var("ECLIPSE_API_OPENVGDB_PATH")
         .expect("expected ECLIPSE_API_OPENVGDB_PATH in the environment");
-
-    tracing_subscriber::fmt::init();
 
     let openvgdb = setup_openvgdb(&openvgdb_path)
         .await
         .expect("Failed to open OpenVGDB.");
     let http = reqwest::ClientBuilder::new()
         .connect_timeout(Duration::from_secs(5))
-        .build()?;
-
-    let state = ApiState { openvgdb, http };
-
-    let origins = vec![
-        HeaderValue::from_static("http://localhost:8000"),
-        HeaderValue::from_static("https://eclipseemu.me"),
-        HeaderValue::from_static("https://beta.eclipseemu.me"),
-    ];
+        .build()
+        .expect("Failed to create http client");
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET])
-        .allow_origin(origins);
+        .allow_origin(ORIGINS);
 
     // build our application with a route
     let app = Router::new()
-        .route("/", get(|| async { (StatusCode::OK, "Eclipse API") }))
+        .route("/", get(endpoints::index::handle))
         .route("/download", get(endpoints::download::handle))
         .route("/boxart", get(endpoints::boxart::handle))
         .layer(cors)
-        .with_state(state);
+        .with_state(ApiState { openvgdb, http });
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    println!("listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .unwrap();
-    Ok(())
+        .expect("Failed to create a TCP listener");
+    axum::serve(listener, app).await.unwrap();
 }

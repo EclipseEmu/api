@@ -1,12 +1,14 @@
-use crate::{
-    util::{empty_string_as_none, ReqwestAxumStream},
-    ApiError, ApiState,
+use {
+    crate::{
+        util::{empty_string_as_none, is_global_url, ReqwestAxumStream},
+        ApiError, ApiState,
+    },
+    axum::{
+        extract::{Query, State},
+        response::IntoResponse,
+    },
+    serde::Deserialize,
 };
-use axum::{
-    extract::{Query, State},
-    response::IntoResponse,
-};
-use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -22,8 +24,12 @@ pub async fn handle(
         return Err(ApiError::MissingQuery("missing url param"));
     };
     let parsed_url = percent_encoding::percent_decode_str(url.as_str()).decode_utf8()?;
-    tracing::debug!("requesting url: {parsed_url:?}");
+
     let req = http.get(parsed_url.to_string()).build()?;
+    if !is_global_url(req.url()) {
+        return Err(ApiError::MissingQuery("invalid url"));
+    };
+
     match http.execute(req).await {
         Ok(resp) => Ok(ReqwestAxumStream(resp)),
         Err(e) => Err(ApiError::Reqwest(e)),
