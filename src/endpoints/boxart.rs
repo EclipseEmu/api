@@ -68,7 +68,7 @@ pub async fn handle(
     )
     .bind(query)
     .bind(&params.system)
-    .fetch_all(&mut conn)
+    .fetch_all(&mut *conn)
     .await?;
 
     let games: Vec<Game> = rows
