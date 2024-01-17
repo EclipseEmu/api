@@ -1,15 +1,9 @@
-use url::{Host, Url};
-
 use {
     crate::ApiError,
-    axum::{
-        body::Body,
-        http::{HeaderName, HeaderValue, StatusCode},
-        response::{IntoResponse, Response},
-    },
     serde::{de, Deserialize, Deserializer},
     sqlx::{Executor, SqlitePool},
     std::{fmt, str::FromStr},
+    url::{Host, Url},
 };
 
 /// Serde deserialization decorator to map empty Strings to None,
@@ -27,7 +21,7 @@ where
 }
 
 #[inline]
-pub fn is_global_url(url: &Url) -> bool {
+pub fn is_global_ip_url(url: &Url) -> bool {
     match url.scheme() {
         "http" | "https" => match url.host() {
             Some(Host::Ipv4(ip)) => ip.is_global(),
@@ -36,36 +30,6 @@ pub fn is_global_url(url: &Url) -> bool {
             _ => false,
         },
         _ => false,
-    }
-}
-
-// Convert a `reqwest::Response` into an axum response
-pub struct ReqwestAxumStream(pub reqwest::Response);
-
-impl IntoResponse for ReqwestAxumStream {
-    fn into_response(self) -> axum::response::Response {
-        let ReqwestAxumStream(resp) = self;
-        let axum_status_code =
-            StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_REQUEST);
-        let mut builder = Response::builder().status(axum_status_code);
-
-        // Set the headers
-        for (header, value) in resp.headers().iter() {
-            let (Ok(axum_name), Ok(axum_value)) = (
-                HeaderName::from_str(header.as_str()),
-                HeaderValue::from_bytes(value.as_bytes()),
-            ) else {
-                continue;
-            };
-            builder = builder.header(axum_name, axum_value);
-        }
-
-        // Make the stream
-        let stream = Body::from_stream(resp.bytes_stream());
-        match builder.body(stream) {
-            Ok(body) => body,
-            Err(err) => ApiError::AxumHttp(err).into_response(),
-        }
     }
 }
 

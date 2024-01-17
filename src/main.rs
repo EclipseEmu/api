@@ -6,7 +6,10 @@ mod errors;
 mod util;
 
 use {
-    crate::{errors::ApiError, util::setup_openvgdb},
+    crate::{
+        errors::ApiError,
+        util::{is_global_ip_url, setup_openvgdb},
+    },
     axum::{
         http::{HeaderValue, Method},
         routing::get,
@@ -39,6 +42,15 @@ async fn main() {
     let http = reqwest::ClientBuilder::new()
         .connect_timeout(Duration::from_secs(5))
         .dns_resolver(Arc::new(dns::TrustDnsResolver::default()))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() > 5 {
+                return attempt.error("too many redirects");
+            }
+            if !is_global_ip_url(attempt.url()) {
+                return attempt.stop();
+            }
+            return attempt.follow();
+        }))
         .build()
         .expect("Failed to create http client");
 
