@@ -1,3 +1,5 @@
+use crate::util::is_global_url;
+
 use {
     crate::{
         util::{empty_string_as_none, ReqwestAxumStream},
@@ -26,6 +28,10 @@ pub async fn handle(
     let parsed_url = percent_encoding::percent_decode_str(url.as_str()).decode_utf8()?;
 
     let req = http.get(parsed_url.to_string()).build()?;
+    if !is_global_url(req.url()) {
+        return Err(ApiError::MissingQuery("invalid url"));
+    }
+
     match http.execute(req).await {
         Ok(resp) => Ok(ReqwestAxumStream(resp)),
         Err(e) => Err(ApiError::Reqwest(e)),
