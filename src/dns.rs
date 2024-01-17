@@ -1,7 +1,6 @@
 //! DNS resolution via the [trust_dns_resolver](https://github.com/bluejekyll/trust-dns) crate
 
 // NOTE: This file is pretty much entirely taken from reqwest, just modified to deny non-global IPs.
-
 use {
     hyper::client::connect::dns::Name,
     once_cell::sync::OnceCell,
@@ -47,9 +46,9 @@ impl Iterator for SocketAddrs {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
-            Some(ip_addr) => match self.iter.next() {
-                Some(IpAddr::V4(ip)) if ip.is_global() => Some(SocketAddr::new(ip_addr, 0)),
-                Some(IpAddr::V6(ip)) if ip.is_global() => Some(SocketAddr::new(ip_addr, 0)),
+            Some(ip_addr) => match ip_addr {
+                IpAddr::V6(ip) if ip.is_global() => Some(SocketAddr::new(ip_addr, 0)),
+                IpAddr::V4(ip) if ip.is_global() => Some(SocketAddr::new(ip_addr, 0)),
                 _ => None,
             },
             None => None,
